@@ -21,9 +21,6 @@ def main():
     if "voice_path" not in st.session_state:
         st.session_state.voice_path = ""
 
-    if "voice_list" not in st.session_state:
-        st.session_state.voice_list = []
-
     if "voice" not in st.session_state:
         st.session_state.voice = ""
     
@@ -49,10 +46,9 @@ def main():
         return response.choices[0].text.strip()
     
 
-    @st.cache_data(show_spinner=False)
+    @st.cache_data(show_spinner="Voices are loading...")
     def get_list_of_voices():
-        v = voices()
-        st.session_state.voice_list = [v.name for v in v]
+        return [v.name for v in voices()]
     
     def generate_audio(text: str, voice: str = "Rachel", model: str = "eleven_multilingual_v1"):
 
@@ -167,79 +163,76 @@ def main():
             elevenlabs_api_key = st.text_input("Fill ElevenLabs API Key", type="password")
             if elevenlabs_api_key != "":
                 set_api_key(elevenlabs_api_key)
-                with st.spinner(text="Setting Key, Please wait..."):
-                    get_list_of_voices()
-                if len(st.session_state.voice_list) > 0:
-                    audio_option = st.selectbox("Generate audio:", ["Use default voices", "Custom voice"])
-                    if audio_option == "Use default voices":
-                        with st.form(key="voice_form"):
+                audio_option = st.selectbox("Generate audio:", ["Use default voices", "Custom voice"])
+                if audio_option == "Use default voices":
+                    with st.form(key="voice_form"):
+                        try:
+                            voice = st.selectbox("Choose a voice:", get_list_of_voices())
+                        except UnboundLocalError as e:
+                            st.error(e)
+                            voice = st.selectbox("Choose a voice:", ["Rachel"])
+                        model = st.selectbox("Choose a model:", ["eleven_multilingual_v1"])
+                        st.session_state.voice = voice
+
+                        voice_submit_button = st.form_submit_button(label="Generate Audio")
+                        if voice_submit_button:
                             try:
-                                voice = st.selectbox("Choose a voice:", st.session_state.voice_list)
-                            except UnboundLocalError as e:
-                                st.error(e)
-                                voice = st.selectbox("Choose a voice:", ["Rachel"])
-                            model = st.selectbox("Choose a model:", ["eleven_multilingual_v1"])
-                            st.session_state.voice = voice
+                                with st.spinner("Generating your audio..."):
+                                    # Generate audio
+                                    audio = generate_audio(
+                                        text=st.session_state.generated_story,
+                                        voice=voice,
+                                        model=model
+                                    )
+                                    
+                                    print(audio)
+                                    st.audio(conn.open("storifybucket/"+audio, mode="rb").read(), format="audio/mp3")
+                                    st.session_state.voice_path = audio
+                            except UnboundLocalError:  # Catch the specific error you're interested in
+                                st.error("Please enter your ElevenLabs API Key to generate a story.")
 
-                            voice_submit_button = st.form_submit_button(label="Generate Audio")
-                            if voice_submit_button:
-                                try:
-                                    with st.spinner("Generating your audio..."):
-                                        # Generate audio
-                                        audio = generate_audio(
-                                            text=st.session_state.generated_story,
-                                            voice=voice,
-                                            model=model
-                                        )
-                                        
-                                        print(audio)
-                                        st.audio(conn.open("storifybucket/"+audio, mode="rb").read(), format="audio/mp3")
-                                        st.session_state.voice_path = audio
-                                except UnboundLocalError:  # Catch the specific error you're interested in
-                                    st.error("Please enter your ElevenLabs API Key to generate a story.")
+                elif audio_option == "Custom voice":
+                    with st.form(key="clone_form"):
+                        
+                        voice_name = st.text_input("Voice name:", key="voice_name")
+                        voice_description = st.text_input(
+                            label="Voice description:",
+                            key="voice_description",
+                            placeholder="Gradma sound"
+                            )
+                        
+                        voice_file = st.file_uploader("Upload a voice sample for the custom voice", type=['mp3', 'wav'])
 
-                    elif audio_option == "Custom voice":
-                        with st.form(key="clone_form"):
-                            
-                            voice_name = st.text_input("Voice name:", key="voice_name")
-                            voice_description = st.text_input(
-                                label="Voice description:",
-                                key="voice_description",
-                                placeholder="Gradma sound"
-                                )
-                            
-                            voice_file = st.file_uploader("Upload a voice sample for the custom voice", type=['mp3', 'wav'])
+                        clone_submit_button = st.form_submit_button(label="Generate Audio")
 
-                            clone_submit_button = st.form_submit_button(label="Generate Audio")
+                        if clone_submit_button and voice_file is not None:
+                            print(voice_file)
 
-                            if clone_submit_button and voice_file is not None:
-                                print(voice_file)
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
+                                # Write the uploaded audio bytes to temp file
+                                tmpfile.write(voice_file.getvalue())
+                                tmp_filename = tmpfile.name
+                            # Add validation for maximum length of the audio file
+                            audio_info = mediainfo(tmp_filename)
+                            if float(audio_info["duration"]) > 120:
+                                st.error("Uploaded audio is too long. Please upload an audio of maximum 2 minutes.")
 
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
-                                    # Write the uploaded audio bytes to temp file
-                                    tmpfile.write(voice_file.getvalue())
-                                    tmp_filename = tmpfile.name
-                                # Add validation for maximum length of the audio file
-                                audio_info = mediainfo(tmp_filename)
-                                if float(audio_info["duration"]) > 120:
-                                    st.error("Uploaded audio is too long. Please upload an audio of maximum 2 minutes.")
-
-                                try:
-                                    with st.spinner("Creating custom voice..."):
-                                        audio = generate_new_voice(
-                                            text=st.session_state.generated_story,
-                                            name=voice_name,
-                                            description=voice_description,
-                                            files=[tmp_filename]
-                                        )
-                                        st.audio(conn.open("storifybucket/"+audio, mode="rb").read(), format="audio/mp3")
-                                        st.session_state.voice = "custom"
-                                        st.session_state.voice_path = audio
-                                except Exception as e:
-                                    print(e)
-                                    st.error("Cloning went wrong...")
-                                finally:
-                                    os.remove(tmp_filename)
+                            try:
+                                with st.spinner("Creating custom voice..."):
+                                    audio = generate_new_voice(
+                                        text=st.session_state.generated_story,
+                                        name=voice_name,
+                                        description=voice_description,
+                                        files=[tmp_filename]
+                                    )
+                                    st.audio(conn.open("storifybucket/"+audio, mode="rb").read(), format="audio/mp3")
+                                    st.session_state.voice = "custom"
+                                    st.session_state.voice_path = audio
+                            except Exception as e:
+                                print(e)
+                                st.error("Cloning went wrong...")
+                            finally:
+                                os.remove(tmp_filename)
 
 
     if st.session_state.voice_path != "":
