@@ -169,7 +169,7 @@ def main():
                 set_api_key(elevenlabs_api_key)
                 with st.spinner(text="Setting Key, Please wait..."):
                     get_list_of_voices()
-                if len(st.session_state.voice_list) == 0:
+                if len(st.session_state.voice_list) > 0:
                     audio_option = st.selectbox("Generate audio:", ["Use default voices", "Custom voice"])
                     if audio_option == "Use default voices":
                         with st.form(key="voice_form"):
