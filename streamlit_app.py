@@ -276,11 +276,17 @@ def main():
                             gender = st.selectbox("Choose voice gender:", ["male", "female"])
                             st.session_state.custom_file = "character/" + gender + ".png"
                         else:
-                            if st.session_state.voice == "Rachel":
+                            if st.session_state.voice in ["Rachel", "Adam", "Antoni", "Arnold", "Bella", "Charlotte", "Emily", "Joseph"]:
                                 ext = ".mp4"
-                            else:
+                                st.session_state.custom_file = "character/" + st.session_state.voice.lower() + ext
+                            elif st.session_state.voice in ["Callum", "Charlie"]:
                                 ext = ".png"
-                            st.session_state.custom_file = "character/" + st.session_state.voice.lower() + ext
+                                st.session_state.custom_file = "character/" + st.session_state.voice.lower() + ext
+                            else:
+                                m_random = ["random_m1.mp4", "random_m2.mp4", "random_m3.mp4", "random_m4.png", "random_m5.png", "random_m6.png"]
+                                f_random = ["random_f1.mp4", "random_f2.mp4", "random_f3.mp4", "random_f4.mp4", "random_f5.mp4", "random_f6.mp4"]
+                                gender = st.selectbox("Choose voice gender:", ["male", "female"])
+                                st.session_state.custom_file = "random/" + random.choice(m_random) if gender == "male" else random.choice(f_random)
                 
                 if st.session_state.custom_file != "" : 
                     generate_button = st.button("Generate Video")
