@@ -1,0 +1,8 @@
+# requirements.txt
+streamlit
+elevenlabs
+s3fs
+openai
+# Direct pypi install coming soon
+git+https://github.com/streamlit/files-connection
+git+https://github.com/jiaaro/pydub.git@master
