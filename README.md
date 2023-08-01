@@ -26,7 +26,12 @@ Follow these steps to get VoiceUp up and running:
 
 4. *Fill required key**
    ```
-   .streamlit/secrets.toml directory
+   .streamlit/secrets.toml file
+
+   AWS_ACCESS_KEY_ID = "XXXXXXX"
+   AWS_SECRET_ACCESS_KEY = "XXXXXXX"
+   AWS_DEFAULT_REGION = "XXXXXXX"
+
    ```
 
 5. **Start the server**
